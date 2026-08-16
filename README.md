@@ -91,6 +91,39 @@ OFF_SERVICE_URL=https://<your-tunnel-hostname>
 OFF_SERVICE_API_KEY=<same value as OFF_SERVICE_API_KEY above>
 ```
 
+## CI/CD (one-time setup)
+
+`.github/workflows/deploy.yml` auto-deploys `off-api` to the shared VPS on
+every push to `main`, using the same forced-command SSH pattern as
+`POS_System_For_all_businesses/deploy.sh`. It only rebuilds/restarts
+containers — it never touches `.env` or `data/food.parquet` (both
+gitignored, untouched by `git reset --hard`), and it never runs the monthly
+refresh (that stays a separate host cron, see above).
+
+One-time setup, not done by this session:
+
+1. Clone this repo to `~/OpenFoodFacts-Catalog-Service` on the shared VPS
+   (`appbox` account) and complete the manual deployment steps above once,
+   so `docker compose up -d --build` already works there.
+2. Generate a dedicated deploy key (separate from the existing
+   `backup-ssh-key/id_sharedvps`, which stays scoped to SFTP-only backups):
+   ```bash
+   ssh-keygen -t ed25519 -f off_deploy_key -C "github-actions-off-deploy" -N ""
+   ```
+3. On the shared VPS, append the public key to `~/.ssh/authorized_keys` for
+   the `appbox` account, restricted to only ever run `deploy.sh` regardless
+   of what the SSH client sends:
+   ```
+   command="~/OpenFoodFacts-Catalog-Service/deploy.sh",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty ssh-ed25519 AAAA...
+   ```
+4. In this GitHub repo's Settings -> Secrets and variables -> Actions, add:
+   - `VPS_HOST` = `hhn.infinity.appboxes.co`
+   - `VPS_PORT` = `10026`
+   - `VPS_USER` = `appbox`
+   - `VPS_DEPLOY_KEY` = contents of `off_deploy_key` (the private half)
+5. Push to `main` — the workflow should deploy and `docker compose ps` in
+   the Action log should show `off_catalog_api` healthy.
+
 ### SFTP access for the business VPS's pull
 
 `refresh/off-monthly-refresh.sh` publishes the finished CSV to
