@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  # Lookup API — serves live per-barcode DuckDB queries against food.parquet.
+  # food.parquet itself is NOT written by this container: refresh/off-monthly-refresh.sh
+  # runs on the host (via cron), atomically swapping the file in place, so the
+  # API never needs restarting or write access — see that script for why.
+  off-api:
+    build: ./api
+    container_name: off_catalog_api
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data:ro
+    ports:
+      - "127.0.0.1:8100:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  # Cloudflare Tunnel — same pattern as the business VPS's own backends: no
+  # exposed port, TLS terminated at Cloudflare's edge, forwards straight to
+  # off-api. The business VPS's OFF_SERVICE_URL points at this tunnel's
+  # public hostname; the API key in .env is the actual auth (the tunnel just
+  # gets traffic in, it doesn't authenticate it).
+  # Setup: Cloudflare dashboard -> Zero Trust -> Networks -> Tunnels ->
+  # Create a tunnel -> Docker -> copy the token into CLOUDFLARE_TUNNEL_TOKEN,
+  # then set the Public Hostname route to http://off-api:8000.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: off_cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      off-api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128m

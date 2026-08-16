@@ -1,0 +1,22 @@
+name: Deploy to shared VPS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_DEPLOY_KEY }}
+          # VPS_DEPLOY_KEY is restricted server-side (authorized_keys forced
+          # command) to only ever run deploy.sh, regardless of what's sent
+          # here — this script value is unused but required by the action.
+          # Same pattern as POS_System_For_all_businesses's deploy key.
+          script: ~/OpenFoodFacts-Catalog-Service/deploy.sh

@@ -1,0 +1,5 @@
+fastapi==0.115.5
+starlette==0.41.3
+uvicorn[standard]==0.32.1
+pydantic-settings==2.6.1
+duckdb==1.5.5
