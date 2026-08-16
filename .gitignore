@@ -3,3 +3,7 @@ data/
 logs/
 __pycache__/
 *.pyc
+*.key
+*.pem
+id_rsa*
+credentials*.json
