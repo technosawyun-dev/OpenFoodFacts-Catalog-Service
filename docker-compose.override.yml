@@ -1,0 +1,6 @@
+services:
+  off-api:
+    volumes:
+      - C:\pos-data\openfoodfacts:/realdata:ro
+    environment:
+      OFF_PARQUET_PATH: /realdata/food.parquet
