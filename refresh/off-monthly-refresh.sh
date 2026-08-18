@@ -20,6 +20,13 @@ set -eu
 #      path "off-catalog/catalog-latest.csv" under the appbox SFTP account's
 #      home, so this must resolve to the same place regardless of where
 #      OpenFoodFacts-Catalog-Service itself lives on disk.
+#   5. Rebuild the indexed food_index.duckdb (build_index.py) from the new
+#      parquet and atomically swap it in — this is what api/app/lookup.py
+#      actually queries per-request (~1-6ms vs ~1-2.5s scanning the raw
+#      parquet). Needs real scratch memory (see build_index.py), which is
+#      exactly why this whole script runs on the host and not in a
+#      container: off-api's own memory limit only has to cover *serving*
+#      the finished, already-built index, never building it.
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="${REPO_DIR}/logs/off-monthly-refresh.log"
@@ -31,6 +38,7 @@ DOWNLOAD_RATE_LIMIT="${OFF_REFRESH_RATE_LIMIT:-10M}"
 PARQUET_DIR="${REPO_DIR}/data/openfoodfacts"
 PARQUET_PATH="${PARQUET_DIR}/food.parquet"
 TMP_PATH="${PARQUET_PATH}.downloading"
+INDEX_DB_PATH="${PARQUET_DIR}/food_index.duckdb"
 
 CATALOG_DIR="${OFF_CATALOG_PUBLISH_DIR:-${HOME}/off-catalog}"
 CATALOG_CSV="${CATALOG_DIR}/catalog-latest.csv"
@@ -89,6 +97,13 @@ log "Exporting catalog CSV"
 python3 "${REPO_DIR}/refresh/export_catalog_csv.py" \
     --parquet "$PARQUET_PATH" \
     --out "$CATALOG_CSV" \
+    2>&1 | tee -a "$LOG"
+
+# --- Step 5: rebuild the indexed DB api/app/lookup.py actually queries ---
+log "Building indexed food_index.duckdb"
+python3 "${REPO_DIR}/refresh/build_index.py" \
+    --parquet "$PARQUET_PATH" \
+    --out "$INDEX_DB_PATH" \
     2>&1 | tee -a "$LOG"
 
 log "=== Monthly OpenFoodFacts refresh complete ==="
