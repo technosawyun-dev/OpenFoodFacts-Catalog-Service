@@ -1,7 +1,0 @@
-services:
-  off-api:
-    volumes:
-      - C:\pos-data\openfoodfacts:/realdata:ro
-    environment:
-      OFF_PARQUET_PATH: /realdata/food.parquet
-      OFF_INDEX_DB_PATH: /realdata/food_index.duckdb

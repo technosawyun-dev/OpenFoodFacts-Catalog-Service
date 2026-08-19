@@ -3,14 +3,14 @@ set -euo pipefail
 
 cd ~/OpenFoodFacts-Catalog-Service
 
-echo "==> Syncing to latest main"
-# Force-sync tracked files to origin/main instead of a plain `git pull`, same
+echo "==> Syncing to latest master"
+# Force-sync tracked files to origin/master instead of a plain `git pull`, same
 # reasoning as POS_System_For_all_businesses's deploy.sh: this runs
 # non-interactively over SSH from CI, so anything short of a hard reset can
 # leave it stuck on local drift. Never touches untracked files, so .env and
 # data/ (the Parquet file) are always safe.
-git fetch origin main
-git reset --hard origin/main
+git fetch origin master
+git reset --hard origin/master
 
 echo "==> Rebuilding and restarting off-api (cloudflared only restarts if changed)"
 docker compose up -d --build --remove-orphans
